@@ -1,0 +1,484 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Asset Finder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: weekly market ledger. Header + pulse, sticky section bar, then one section per job: picks, movers (grouped by asset type), meme board, radar (grouped by type), IPOs, footer. */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#14201d; --muted:#5c6b67; --line:#dbe2df;
+  --accent:#0f5c4d; --accent-soft:#e2efeb;
+  --gain:#1a7f4b; --gain-soft:#e3f3ea; --loss:#b4372f; --loss-soft:#f8e6e3; --warn:#9a6a00; --warn-soft:#fbf1d9;
+  --display:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1513; --surface:#151f1c; --ink:#e4ece9; --muted:#93a39e; --line:#26332f;
+  --accent:#5fc4ab; --accent-soft:#183029;
+  --gain:#4fcf8a; --gain-soft:#14301f; --loss:#f07a70; --loss-soft:#3a1c19; --warn:#e8b84a; --warn-soft:#352a10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1513; --surface:#151f1c; --ink:#e4ece9; --muted:#93a39e; --line:#26332f;
+  --accent:#5fc4ab; --accent-soft:#183029;
+  --gain:#4fcf8a; --gain-soft:#14301f; --loss:#f07a70; --loss-soft:#3a1c19; --warn:#e8b84a; --warn-soft:#352a10; color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px;display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.asof{font-size:12px;color:var(--muted)}
+.up{color:var(--gain)} .down{color:var(--loss)}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+section{scroll-margin-top:84px}
+
+/* Header + pulse */
+.head{display:flex;flex-direction:column;gap:18px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:18px}
+.brand h1{font-size:clamp(36px,6vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:10px 0 0;color:var(--muted);max-width:60ch}
+.edition{display:flex;flex-direction:column;gap:2px;text-align:right}
+.edition strong{font-family:var(--display);font-size:18px}
+.pulse{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pulse div{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pulse .v{font-family:var(--mono);font-size:19px;font-weight:600}
+.pulse .s{font-size:12px;color:var(--muted)}
+
+/* Sticky bar */
+.bar-wrap{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-block:-24px;padding-block:10px;border-bottom:1px solid var(--line)}
+.navbar{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
+.jump{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;max-width:100%}
+.jump::-webkit-scrollbar{display:none}
+.jump a{font:600 13px var(--body);color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:8px;white-space:nowrap}
+.jump a:hover{color:var(--ink);background:var(--surface)}
+.seg{display:flex;align-items:center;gap:8px}
+.seg .label{white-space:nowrap}
+.seg-btns{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg button{font:600 13px var(--body);padding:6px 12px;border-radius:999px;border:0;background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+/* Section heads */
+.sec-head{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;max-width:72ch}
+.sec-head h2{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.sec-head p{margin:0;color:var(--muted);font-size:14px}
+.subhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;margin-bottom:12px}
+.subhead h3{font-size:19px;font-weight:700}
+.stack{display:flex;flex-direction:column;gap:24px}
+
+/* Picks */
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:20px}
+.pick{background:var(--surface);border:2px solid var(--ink);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pick-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--accent);color:var(--bg);padding:4px 10px;border-radius:999px}
+.pick-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pick-name h3{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.pick-name .mono{color:var(--muted);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stats div{background:var(--bg);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stats b{font-size:18px;font-family:var(--display)}
+.stats b.mono{font-family:var(--mono)}
+.stats span:last-child{font-size:12px;color:var(--muted)}
+.pick dl,.card dl{margin:0;display:flex;flex-direction:column;gap:8px}
+.pick dt,.card dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.pick dd,.card dd{margin:0;font-size:14px;max-width:65ch}
+dt.why{color:var(--gain)} dt.risk{color:var(--loss)} dt.next{color:var(--accent)}
+.fit{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;border-top:1px solid var(--line);padding-top:12px;margin-top:auto}
+.fit i{font-style:normal;font-weight:700}
+.fit .warn{color:var(--warn)} .fit .loss{color:var(--loss)}
+.track{margin-top:16px;background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.track p{margin:0;font-size:13px;color:var(--muted)}
+
+/* Movers */
+.mblock{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px 32px}
+.col{display:flex;flex-direction:column;min-width:0}
+.col-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:15px;padding-bottom:8px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.sublabel{margin:14px 0 2px}
+.row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.6fr) 76px;gap:12px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.row .name{min-width:0}
+.row .tk{font-family:var(--mono);font-weight:600;font-size:13px}
+.row .nm{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:10px;border-radius:3px;background:var(--bg);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:3px}
+.pct{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;text-align:right;font-size:14px}
+.notes{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:12px}
+.notes li{font-size:12.5px;color:var(--muted);max-width:90ch}
+.notes li::before{content:"Note · ";font-weight:600;color:var(--ink)}
+
+/* Tables */
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:14px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--bg);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+th.r,td.r{text-align:right;white-space:nowrap}
+td.read{color:var(--muted);font-size:13px;min-width:240px}
+table.meme{min-width:920px}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.chip.firm{background:var(--gain-soft);color:var(--gain)}
+.chip.rep{background:var(--warn-soft);color:var(--warn)}
+.chip.pipe{background:var(--accent-soft);color:var(--accent)}
+.av{font-weight:600;font-size:13px;white-space:nowrap}
+.av.yes{color:var(--gain)} .av.no{color:var(--muted)} .av.chk{color:var(--warn)}
+.coin{display:flex;flex-direction:column}
+.coin b{font-family:var(--mono);font-size:13px}
+.coin span{font-size:12px;color:var(--muted)}
+.tbl-foot{margin:10px 0 0}
+.memesum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-bottom:14px}
+.memesum div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.memesum strong{font-family:var(--display);font-size:20px}
+.memesum span:last-child{font-size:13px;color:var(--muted)}
+
+/* Radar */
+.radar{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.card .tk{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.01em;line-height:1.1}
+.card .nm{font-size:13px;color:var(--muted)}
+.tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.risklvl{font-size:12px;font-weight:600}
+.count{font:600 12px var(--mono);color:var(--muted)}
+
+/* Footer */
+footer{border-top:2px solid var(--ink);padding-top:22px;display:flex;flex-direction:column;gap:18px}
+.disclaimer{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 14px;border-radius:0 8px 8px 0;font-size:13px}
+.method{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px}
+.method h3{font-size:16px;margin-bottom:8px}
+.method p{margin:0 0 8px;font-size:14px;color:var(--muted);max-width:65ch}
+details summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:16px}
+.src{font-size:12.5px;color:var(--muted);columns:2 260px;column-gap:28px;margin:10px 0 0;padding-left:18px}
+.src li{break-inside:avoid;margin-bottom:4px}
+
+@media (max-width:520px){
+  .row{grid-template-columns:minmax(0,1fr) 70px}.row .bar{display:none}
+  .edition{text-align:left}
+  .stats{grid-template-columns:1fr}
+  .navbar{flex-direction:column;align-items:stretch}
+  .seg{justify-content:space-between}
+  .bar-wrap{margin-block:-32px}
+}
+</style>
+
+<div class="wrap">
+  <div class="head">
+    <header class="top">
+      <div class="brand">
+        <h1>Asset<span>Finder</span></h1>
+        <p>Weekly scan of the stocks and crypto you can trade on Robinhood and Crypto.com: the best picks for your money, who ran and who sank, the meme coin scene, and what's listing next.</p>
+      </div>
+      <div class="edition">
+        <span class="label">This edition</span>
+        <strong id="edDate">Week of Oct 29, 2026</strong>
+        <span class="asof">Refreshes every Saturday morning (PT)</span>
+      </div>
+    </header>
+    <div class="pulse" aria-label="Market pulse">
+      <div><span class="label">Bitcoin</span><span class="v mono">$78,392</span><span class="s"><span class="up">+24.6%</span> 90d · <span class="down">−6.2%</span> 30d</span></div>
+      <div><span class="label">Ethereum</span><span class="v mono">$2,236</span><span class="s"><span class="up">+20.0%</span> 90d · <span class="down">−16.9%</span> 30d</span></div>
+      <div><span class="label">S&amp;P 500 YTD</span><span class="v mono up">+13.0%</span><span class="s">as of Oct 22</span></div>
+      <div><span class="label">10-yr Treasury</span><span class="v mono">~5.0%</span><span class="s">inflation running ~3.7%</span></div>
+      <div><span class="label">BTC dominance</span><span class="v mono">~60%</span><span class="s">altcoins hit harder in Oct</span></div>
+    </div>
+  </div>
+
+  <div class="bar-wrap">
+    <nav class="navbar" aria-label="Sections">
+      <div class="jump">
+        <a href="#picks">Top picks</a>
+        <a href="#movers">90-day movers</a>
+        <a href="#memes">Meme coins</a>
+        <a href="#radar">On the radar</a>
+        <a href="#ipos">IPOs</a>
+      </div>
+      <div class="seg" role="group" aria-label="Show asset type">
+        <span class="label">Show</span>
+        <div class="seg-btns">
+          <button id="f-all" data-f="all" aria-pressed="true">All</button>
+          <button id="f-stock" data-f="stock" aria-pressed="false">Stocks</button>
+          <button id="f-crypto" data-f="crypto" aria-pressed="false">Crypto</button>
+          <button id="f-meme" data-f="meme" aria-pressed="false">Memes</button>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <section id="picks" aria-labelledby="picksTitle">
+    <div class="sec-head">
+      <h2 id="picksTitle">Bang for your buck</h2>
+      <p>One stock and one crypto each week: the most value we see for the money, judged on price versus earnings or past highs, momentum, and what's coming next. Every pick shows where it could go wrong.</p>
+    </div>
+    <div class="picks">
+      <article class="pick">
+        <div class="pick-top">
+          <span class="pill">Stock pick</span>
+          <span class="asof">Picked Oct 29, 2026</span>
+        </div>
+        <div class="pick-name"><h3>SK hynix</h3><span class="mono">SKHY</span></div>
+        <div class="stats">
+          <div><span class="label">Price / earnings</span><b class="mono">5.7×</b><span>trailing</span></div>
+          <div><span class="label">Return plan</span><b class="mono">$75B</b><span>to shareholders</span></div>
+          <div><span class="label">Capacity</span><b>Sold out</b><span>AI memory</span></div>
+        </div>
+        <dl>
+          <dt class="why">Why it's the pick</dt>
+          <dd>SK hynix makes the high-speed memory that AI chips can't run without, and it just posted a record quarter with its capacity sold out. You pay about 5.7 times last year's earnings, while many AI names trade at 30 to 100 times. It's also handing back up to $75B to shareholders. The shares slid after earnings, so you're buying record results at a lower price.</dd>
+          <dt class="risk">Where the risk is</dt>
+          <dd>Memory is a boom-and-bust business. If AI data-center spending slows, chip prices can drop fast and today's cheap earnings multiple turns out not to be cheap. Investors are already questioning how long these margins last, which is why the stock fell on good news. It's a Korean company, so currency moves and Korea-specific rules add risk.</dd>
+          <dt class="next">What would change our view</dt>
+          <dd>Big cloud companies cutting AI budgets, or memory prices falling for two straight months.</dd>
+        </dl>
+        <div class="fit"><span><b>Time frame:</b> 1–3 years</span><span><b>Risk:</b> <i class="warn">Medium</i></span></div>
+      </article>
+
+      <article class="pick">
+        <div class="pick-top">
+          <span class="pill">Crypto pick</span>
+          <span class="asof">Picked Oct 29, 2026</span>
+        </div>
+        <div class="pick-name"><h3>Bitcoin</h3><span class="mono">BTC</span></div>
+        <div class="stats">
+          <div><span class="label">Price</span><b class="mono">$78,392</b><span>Oct 29</span></div>
+          <div><span class="label">Off record high</span><b class="mono down">−38%</b><span>peak $126,198</span></div>
+          <div><span class="label">Market share</span><b class="mono">~60%</b><span>of all crypto</span></div>
+        </div>
+        <dl>
+          <dt class="why">Why it's the pick</dt>
+          <dd>Bitcoin is about 38% below its record, so you're buying the biggest, most proven coin at a large discount. It fell the least of the major coins in October while most others dropped 17–30%, and its share of the crypto market climbed near 60%, a sign money is moving into it during the sell-off. Spot Bitcoin ETFs have flipped back to small inflows. It's on both Robinhood and Crypto.com, with the deepest trading of any coin.</dd>
+          <dt class="risk">Where the risk is</dt>
+          <dd>Bitcoin is down about 8% this year, and Treasury yields near 5% make safer investments more attractive. Another Fed rate hike could push it lower. The Binance hack reported Oct 30 left about $3.2B in stolen BTC and ETH that could still be sold. Bitcoin can fall 50% or more in a bad year, so only put in what you could leave alone through a big drop.</dd>
+          <dt class="next">What would change our view</dt>
+          <dd>Bitcoin ETFs going back to steady weekly outflows, or a break below its 2026 lows.</dd>
+        </dl>
+        <div class="fit"><span><b>Time frame:</b> 2+ years</span><span><b>Risk:</b> <i class="loss">High</i></span></div>
+      </article>
+    </div>
+
+    <div class="track">
+      <span class="label">Track record</span>
+      <p>These are the first picks. Starting next Saturday, every past pick shows here with its price when picked and its return since, wins and losses alike.</p>
+    </div>
+  </section>
+
+  <section id="movers" aria-labelledby="moversTitle">
+    <div class="sec-head">
+      <h2 id="moversTitle">90-day movers</h2>
+      <p>Biggest winners and losers by asset type. Stocks are ranked inside the S&amp;P 500 so penny-stock spikes don't crowd out names you'd actually hold. Bars are scaled within each list.</p>
+    </div>
+    <div class="stack">
+      <div class="mblock" data-type="stock">
+        <div class="subhead"><h3>Stocks</h3><span class="asof">S&amp;P 500 · about 90 days ending Oct 16–23</span></div>
+        <div class="cols">
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--gain)"></span>Best</div>
+            <div id="gStock"></div>
+            <span class="label sublabel">Outside the S&amp;P 500 · 3 months</span>
+            <div id="gSmall"></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--loss)"></span>Worst</div>
+            <div id="lStock"></div>
+          </div>
+        </div>
+        <ul class="notes"><li>Corteva (CTVA) shows about −86% on some screens for this window because of its company split, not a real loss, so it's left out.</li></ul>
+      </div>
+
+      <div class="mblock" data-type="crypto">
+        <div class="subhead"><h3>Crypto</h3><span class="asof">Large caps · best over 90 days to Oct 29 · worst over Oct 5–29</span></div>
+        <div class="cols">
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--gain)"></span>Best</div>
+            <div id="gCrypto"></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--loss)"></span>Worst</div>
+            <div id="lCrypto"></div>
+          </div>
+        </div>
+        <ul class="notes"><li>Most big coins are still up over 90 days after a strong summer, so the worst list uses the October sell-off. A Binance hack reported Oct 30 added fresh selling in UNI, ENA, AAVE, LINK and ONDO.</li></ul>
+      </div>
+
+      <div class="mblock" data-type="meme">
+        <div class="subhead"><h3>Meme coins</h3><span class="asof">30-day change to Oct 27–30</span></div>
+        <div class="cols">
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--gain)"></span>Best</div>
+            <div id="gMeme"></div>
+          </div>
+          <div class="col">
+            <div class="col-h"><span class="dot" style="background:var(--loss)"></span>Worst</div>
+            <div id="lMeme"></div>
+          </div>
+        </div>
+        <ul class="notes"><li>Reliable 90-day figures aren't published for most meme coins, so this block uses 30 days. Coins without a trustworthy figure this week are left off; see the full board below.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="memes" data-type="meme" aria-labelledby="memesTitle">
+    <div class="sec-head">
+      <h2 id="memesTitle">Meme coin board</h2>
+      <p>The most popular meme coins, biggest first, with where you can buy each one.</p>
+    </div>
+    <div class="memesum">
+      <div><span class="label">Sector mood</span><strong class="down">Risk-off</strong><span>DOGE, SHIB and ELON all down 15–20% this month</span></div>
+      <div><span class="label">The exception</span><strong class="up">PEPE +15.9%</strong><span>Only big meme coin up over 30 days</span></div>
+      <div><span class="label">Biggest by value</span><strong>DOGE $12.4B</strong><span>4× the next coin, SHIB</span></div>
+    </div>
+    <div class="tbl">
+      <table class="meme">
+        <thead><tr><th>Coin</th><th class="r">Price</th><th class="r">Market value</th><th class="r">30-day</th><th class="r">1-year</th><th>Robinhood</th><th>Crypto.com</th><th>Quick read</th></tr></thead>
+        <tbody id="memeRows"></tbody>
+      </table>
+    </div>
+    <p class="asof tbl-foot">Prices Oct 27–30, 2026. "—" means no reliable figure this week. App availability comes from each app's listing announcements and can vary by state; check the app before buying.</p>
+  </section>
+
+  <section id="radar" aria-labelledby="radarTitle">
+    <div class="sec-head">
+      <h2 id="radarTitle">On the radar</h2>
+      <p>Names with a near-term catalyst or a setup worth watching, each with the case for and against. A watch list, not buy calls.</p>
+    </div>
+    <div class="stack" id="radarGroups"></div>
+  </section>
+
+  <section id="ipos" data-type="stock" aria-labelledby="iposTitle">
+    <div class="sec-head">
+      <h2 id="iposTitle">IPO calendar</h2>
+      <p>Upcoming US listings you could see on Robinhood. Dates move often before pricing; "Reported" means press reports, not a company announcement.</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Company</th><th>Ticker · Exchange</th><th>Expected</th><th>Terms</th><th>Status</th><th>Quick read</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Anthropic</strong></td><td class="mono">ANT · Nasdaq</td><td>Week of Nov 16 or Thanksgiving week</td><td>Price range not set</td><td><span class="chip rep">S-1 filed Oct 26</span></td><td>AI lab behind Claude. Reports point to a raise of $100B+ at a $1.5–2T valuation, which would rank among the largest IPOs ever. First-half 2026 revenue was $16.3B per the filing.</td></tr>
+          <tr><td><strong>OPay</strong></td><td class="mono">OPAY · NYSE</td><td>Pricing ~Oct 29</td><td>$19 – $21</td><td><span class="chip firm">Terms set</span></td><td>Digital bank and payments app focused on Nigeria and other emerging markets.</td></tr>
+          <tr><td><strong>Aspen Neuroscience</strong></td><td class="mono">ASPE · Nasdaq</td><td>Pricing ~Oct 29</td><td>$15 – $17</td><td><span class="chip firm">Terms set</span></td><td>Early-stage stem-cell therapy for Parkinson's. Binary, trial-driven biotech.</td></tr>
+          <tr><td><strong>Bambusa Therapeutics</strong></td><td class="mono">BBTX · Nasdaq</td><td>Pricing ~Oct 29</td><td>$15 – $17</td><td><span class="chip firm">Terms set</span></td><td>Biotech riding a busy fall run of drug-developer IPOs.</td></tr>
+          <tr><td><strong>Switch</strong></td><td class="mono">— · TBD</td><td>Targeting year-end</td><td>Reported ~$80B value</td><td><span class="chip pipe">Banks hired</span></td><td>Las Vegas data-center operator. Direct play on AI power and capacity demand.</td></tr>
+          <tr><td><strong>Kraken (Payward)</strong></td><td class="mono">— · TBD</td><td>Likely 2027</td><td>—</td><td><span class="chip pipe">Confidential filing</span></td><td>Crypto exchange. A listing would be a sentiment test for crypto stocks.</td></tr>
+          <tr><td><strong>OpenAI</strong></td><td class="mono">— · TBD</td><td>Not before 2027</td><td>—</td><td><span class="chip pipe">Confidential filing</span></td><td>CEO has said it won't list before 2027.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <div class="disclaimer"><strong>Not financial advice.</strong> Asset Finder summarizes public data and news for research. Prices move daily and past returns don't predict future ones. Check figures in your brokerage before you trade, and only risk money you can afford to lose.</div>
+    <div class="method">
+      <div>
+        <h3>How this is put together</h3>
+        <p>Robinhood lists thousands of US stocks and Crypto.com lists hundreds of coins. Rather than dump every ticker, each edition ranks the most tradeable slice: S&amp;P 500 stocks for 90-day returns, a few larger names outside it, the largest coins by market value, and the most popular meme coins.</p>
+        <p>Returns come from the dated sources listed here, so windows can differ by a few days. Robinhood carries far fewer coins than Crypto.com.</p>
+      </div>
+      <details>
+        <summary>Sources this week</summary>
+        <ul class="src">
+          <li><a href="https://www.statmuse.com/money/ask/best-performing-stocks-in-s-and-p-500-past-3-months" target="_blank" rel="noopener">StatMuse · S&amp;P 500 best 3 months</a></li>
+          <li><a href="https://www.statmuse.com/money/ask/worst-performing-stocks-in-s-and-p-500-past-3-months" target="_blank" rel="noopener">StatMuse · S&amp;P 500 worst 3 months</a></li>
+          <li><a href="https://wallstreetnumbers.com/screeners/best-performing-stocks-october-2026" target="_blank" rel="noopener">WallStreetNumbers · October screener</a></li>
+          <li><a href="https://cryptoticker.io/en/best-crypto-to-buy-now/" target="_blank" rel="noopener">CryptoTicker · November coins</a></li>
+          <li><a href="https://finance.yahoo.com/markets/crypto/articles/too-crypto-october-2026-3-230323461.html" target="_blank" rel="noopener">Yahoo Finance · crypto 90-day table</a></li>
+          <li><a href="https://247wallst.com/investing/cryptocurrency/2026/10/28/pepe-rose-20-in-a-month-while-dogecoin-and-shiba-inu-lost-11-to-14-are-meme-coins-dead/" target="_blank" rel="noopener">24/7 Wall St. · meme coin month</a></li>
+          <li><a href="https://cryptoticker.io/en/shiba-inu-price-below-september-low-october-27-2026/" target="_blank" rel="noopener">CryptoTicker · Shiba Inu</a></li>
+          <li><a href="https://www.coinspeaker.com/guides/best-meme-coins-to-buy/" target="_blank" rel="noopener">Coinspeaker · meme coins by market cap</a></li>
+          <li><a href="https://www.kucoin.com/news/flash/meme-coins-still-matter-7-assets-and-launchpads-to-watch-in-october-2026" target="_blank" rel="noopener">KuCoin · meme coins to watch</a></li>
+          <li><a href="https://metamask.com/price/dogelon-mars" target="_blank" rel="noopener">MetaMask · Dogelon Mars price</a></li>
+          <li><a href="https://www.fool.com/investing/2026/10/26/should-you-buy-dogecoin-while-its-below-1/" target="_blank" rel="noopener">Motley Fool · Dogecoin</a></li>
+          <li><a href="https://coinmarketcap.com/academy/article/robinhood-lists-3-new-meme-coins-as-crypto-trading-expands-after-trumps-election" target="_blank" rel="noopener">CoinMarketCap · Robinhood meme listings</a></li>
+          <li><a href="https://crypto.com/product-news/crypto-com-app-lists-dogelon-mars-elon-2" target="_blank" rel="noopener">Crypto.com · ELON listing</a></li>
+          <li><a href="https://www.kucoin.com/news/articles/crypto-daily-market-report-october-30-2026" target="_blank" rel="noopener">KuCoin · daily market report</a></li>
+          <li><a href="https://www.renaissancecapital.com/IPO-Center/Track-AI-IPOs" target="_blank" rel="noopener">Renaissance Capital · IPO news</a></li>
+          <li><a href="https://www.benzinga.com/node/62595495" target="_blank" rel="noopener">Benzinga · Anthropic S-1</a></li>
+          <li><a href="https://accessipos.com/upcoming-ipos/" target="_blank" rel="noopener">AccessIPOs · pipeline</a></li>
+          <li><a href="https://www.cnbc.com/2026/10/24/top-tech-stocks-to-buy-according-to-goldman-sachs.html" target="_blank" rel="noopener">CNBC · Goldman tech picks</a></li>
+          <li><a href="https://finance.yahoo.com/markets/stocks/articles/13-high-conviction-catalyst-driven-214725180.html" target="_blank" rel="noopener">Wells Fargo 4Q ideas via Yahoo</a></li>
+          <li><a href="https://www.forbes.com/sites/investor-hub/article/best-stocks-buy-now-november-2026/" target="_blank" rel="noopener">Forbes · November screen</a></li>
+          <li><a href="https://stockanalysisdaily.substack.com/p/ai-spending-rate-worries-and-the" target="_blank" rel="noopener">Stock Analysis Daily · SK Hynix</a></li>
+          <li><a href="https://www.earningswhispers.com/calweek/20261102" target="_blank" rel="noopener">Earnings Whispers · week of Nov 2</a></li>
+        </ul>
+      </details>
+    </div>
+  </footer>
+</div>
+
+<script>
+const DATA = {
+  gStock:[["MRNA","Moderna",254.3],["ACN","Accenture",87.6],["IT","Gartner",76.4],["PTC","PTC Inc.",69.6],["NOW","ServiceNow",57.0],["PLTR","Palantir",55.8],["WDAY","Workday",54.6],["CRM","Salesforce",51.9]],
+  gSmall:[["AONC","American Oncology Network",120.1],["BRZE","Braze",116.2],["BMBL","Bumble",113.6],["SLN","Silence Therapeutics",71.8]],
+  lStock:[["APP","AppLovin",-38.3],["FICO","Fair Isaac",-36.8],["MGM","MGM Resorts",-36.8],["LII","Lennox",-33.7],["CHRW","C.H. Robinson",-27.9],["VRT","Vertiv",-27.7],["WDC","Western Digital",-26.7],["EIX","Edison Intl.",-26.0]],
+  gCrypto:[["ZEC","Zcash",169.0],["HYPE","Hyperliquid",72.2],["BTC","Bitcoin",24.6],["ETH","Ethereum",20.0]],
+  lCrypto:[["AAVE","Aave",-29.9],["SUI","Sui",-29.1],["SOL","Solana",-20.4],["ETH","Ethereum",-17.8],["BTC","Bitcoin (for scale)",-8.8]],
+  gMeme:[["PEPE","Pepe",15.9]],
+  lMeme:[["ELON","Dogelon Mars",-20.4],["SHIB","Shiba Inu",-17.4],["DOGE","Dogecoin",-15.6]]
+};
+const pctTxt=p=>`${p>=0?'+':'−'}${Math.abs(p).toFixed(1)}%`;
+function renderList(id){
+  const rows=DATA[id], max=Math.max(...rows.map(r=>Math.abs(r[2])));
+  document.getElementById(id).innerHTML=rows.map(([t,n,p])=>{
+    const w=(Math.abs(p)/max*100).toFixed(1), c=p>=0?"var(--gain)":"var(--loss)";
+    return `<div class="row"><div class="name"><div class="tk">${t}</div><div class="nm">${n}</div></div><div class="bar" aria-hidden="true"><i style="width:${w}%;background:${c}"></i></div><div class="pct ${p>=0?'up':'down'}">${pctTxt(p)}</div></div>`;
+  }).join("");
+}
+Object.keys(DATA).forEach(renderList);
+
+const MEME=[
+  // ticker, name, price, market value, 30d, 1y, robinhood (y/n/c), crypto.com, quick read
+  ["DOGE","Dogecoin","$0.079","$12.4B",-15.6,-59.1,"y","y","Below all its key moving averages; DogeOS testnet live, no mainnet date."],
+  ["SHIB","Shiba Inu","$0.00000488","$2.88B",-17.4,-53.9,"y","y","Below every September close; thin trading magnifies selling. No max supply."],
+  ["PEPE","Pepe","$0.00000488","$2.05B",15.9,null,"y","y","Bucking the trend on reported Justin Sun-linked accumulation."],
+  ["PENGU","Pudgy Penguins","$0.0077","$485M",null,null,"y","y","Added to SoFi's banking app Oct 19; still ~85% below its 2024 peak."],
+  ["TRUMP","Official Trump","$1.71","$482M",null,null,"c","y","Moves mostly on political headlines rather than any product."],
+  ["FLOKI","Floki","$0.000029","$285M",null,null,"c","y","Older community coin; small enough to swing on headlines."],
+  ["BONK","Bonk","$0.0000030","$270M",null,null,"y","y","Solana's biggest community coin; a July governance attack took ~$20M from its treasury."],
+  ["ELON","Dogelon Mars","$0.00000003","$26.7M",-20.4,-65.2,"n","y","Tiny and illiquid; about 99% below its all-time high. Not sold on Robinhood."]
+];
+const AV={y:'<span class="av yes">✓ Yes</span>',n:'<span class="av no">✕ No</span>',c:'<span class="av chk">? Check</span>'};
+const fmt=p=>p==null?'<span class="asof">—</span>':`<span class="mono ${p>=0?'up':'down'}">${pctTxt(p)}</span>`;
+document.getElementById("memeRows").innerHTML=MEME.map(m=>`<tr><td><div class="coin"><b>${m[0]}</b><span>${m[1]}</span></div></td><td class="r mono">${m[2]}</td><td class="r mono">${m[3]}</td><td class="r">${fmt(m[4])}</td><td class="r">${fmt(m[5])}</td><td>${AV[m[6]]}</td><td>${AV[m[7]]}</td><td class="read">${m[8]}</td></tr>`).join("");
+
+const RADAR=[
+  {t:"PLTR",n:"Palantir",type:"stock",tag:"Earnings Nov 2",risk:"High risk",why:"Up about 56% over 90 days and still buy-rated at Goldman, which points to government agreements as a driver. Reports Monday after the close.",against:"Priced for perfection. With the 10-year near 5%, high-multiple stocks get punished hard on any miss.",next:"Q3 results, Mon Nov 2 after close."},
+  {t:"MSFT",n:"Microsoft",type:"stock",tag:"Steady compounder",risk:"Lower risk",why:"Up roughly 34% over 90 days. Goldman's software analyst still sees room to run on AI and cloud demand.",against:"A big run already in; hyperscaler AI spending is under scrutiny for margin payback.",next:"Reaction to Oct 28 earnings; guidance on capex."},
+  {t:"MU",n:"Micron",type:"stock",tag:"AI memory",risk:"Medium risk",why:"Key supplier of AI memory and passes a value screen (P/E under 20, analyst buy ratings). Memory stocks rebounded this week.",against:"Memory is cyclical; prices can turn fast if AI build-outs slow.",next:"Memory pricing data and peer earnings."},
+  {t:"SKHY",n:"SK hynix",type:"stock",tag:"Cheap on earnings",risk:"Medium risk",why:"Record AI-driven quarter, sold-out capacity, a $75B shareholder-return plan, and about 5.7x trailing earnings.",against:"Shares slid after the report as investors question how long these margins last.",next:"Follow-through after the earnings dip."},
+  {t:"KYMR",n:"Kymera Therapeutics",type:"stock",tag:"Trial readout",risk:"Very high risk",why:"Wells Fargo named it a Q4 catalyst idea with a $151 target ahead of Phase 2b data for its eczema pill KT-621.",against:"Binary event. Weak efficacy versus Dupixent or any safety issue could crater the stock.",next:"KT-621 Phase 2b data."},
+  {t:"ANT",n:"Anthropic (IPO)",type:"stock",tag:"IPO watch",risk:"High risk",why:"Likely the biggest listing of the year, with fast revenue growth disclosed in its S-1. Day-one demand will set the tone for AI stocks.",against:"Valuation of up to $2T on a company that is still losing money; mega-IPOs often trade choppy early.",next:"Price range in an amended S-1, then roadshow."},
+  {t:"BTC",n:"Bitcoin",type:"crypto",tag:"Relative strength",risk:"Medium risk",why:"Fell the least of the big coins in October and dominance is near 60%, a sign money is consolidating rather than leaving crypto. Spot ETF flows have turned back to small inflows.",against:"Down about 8% this year; a hawkish Fed and high yields weigh on all risk assets.",next:"ETF flow data and the Fed's next move."},
+  {t:"HYPE",n:"Hyperliquid",type:"crypto",tag:"Only big gainer in Oct",risk:"High risk",why:"The only top-nine coin up over the past 30 days. Intercontinental Exchange plans a regulated US market built on its tech; it jumped 12.8% on Oct 29.",against:"Already up 72% in 90 days, and the ICE plan needs CFTC approval with no start date.",next:"Any CFTC filing or timeline."},
+  {t:"LINK",n:"Chainlink",type:"crypto",tag:"Held up best",risk:"Medium risk",why:"Lost only about 3% in October while most large altcoins fell 17–30%, and it gained about 80% over the prior 90 days.",against:"Caught in the hack-related selling on Oct 30 (down 10%+ that day); one-year return is still negative.",next:"Whether the hacker's remaining funds keep hitting the market."},
+  {t:"ZEC",n:"Zcash",type:"crypto",tag:"Momentum leader",risk:"Very high risk",why:"Best large-cap coin over 90 days (about +169%) with an upgrade on the way.",against:"The upgrade may be priced in, and EU anti-money-laundering rules from July 2027 bar regulated providers from anonymous accounts.",next:"Upgrade timing; exchange delisting news in Europe."},
+  {t:"PEPE",n:"Pepe",type:"meme",tag:"Whale buying",risk:"Very high risk",why:"The only large meme coin up over the past month (+15.9%) while DOGE and SHIB fell. Wallets tied to Justin Sun reportedly took in 7.2 trillion PEPE in mid-October, a stake worth about $51M.",against:"Some of those transfers may be internal moves, not new buying. Price runs on attention with no product news, and one big holder can push it down as fast as up.",next:"Whether the Sun-linked wallets hold or sell."},
+  {t:"DOGE",n:"Dogecoin",type:"meme",tag:"Utility push",risk:"High risk",why:"Biggest and most liquid meme coin. Dogecoin Labs is building DogeOS (smart contracts), a wallet and a merchant payments app, and the DogeOS testnet opened Sept 30.",against:"Down 59% in a year and below its 20, 50 and 200-day averages. An earlier smart-contract effort shut down, and DOGE ETFs drew little money; one is closing.",next:"A DogeOS mainnet date (none set yet)."}
+];
+const GROUPS=[["stock","Stocks"],["crypto","Crypto"],["meme","Meme coins"]];
+const riskColor=r=>/high/i.test(r)?"var(--loss)":/Medium/.test(r)?"var(--warn)":"var(--gain)";
+const card=a=>`<article class="card">
+    <div class="hd"><div><div class="tk">${a.t}</div><div class="nm">${a.n}</div></div><span class="tag">${a.tag}</span></div>
+    <span class="risklvl" style="color:${riskColor(a.risk)}">● ${a.risk}</span>
+    <dl><dt class="why">Why watch</dt><dd>${a.why}</dd><dt class="risk">What could go wrong</dt><dd>${a.against}</dd><dt class="next">Next catalyst</dt><dd>${a.next}</dd></dl>
+  </article>`;
+document.getElementById("radarGroups").innerHTML=GROUPS.map(([k,label])=>{
+  const items=RADAR.filter(a=>a.type===k); if(!items.length) return "";
+  return `<div data-type="${k}"><div class="subhead"><h3>${label}</h3><span class="count">${items.length} names</span></div><div class="radar">${items.map(card).join("")}</div></div>`;
+}).join("");
+
+const btns=[...document.querySelectorAll(".seg button")];
+function applyFilter(f){
+  btns.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.f===f)));
+  document.querySelectorAll("[data-type]").forEach(el=>{const t=el.dataset.type;el.hidden=!(f==="all"||t===f||(f==="crypto"&&t==="meme"))});
+  document.querySelectorAll(".jump a").forEach(a=>{const sec=document.querySelector(a.getAttribute("href"));a.hidden=!!(sec&&sec.hidden)});
+  try{localStorage.setItem("af-filter",f)}catch(e){}
+}
+btns.forEach(b=>b.addEventListener("click",()=>applyFilter(b.dataset.f)));
+let saved="all";try{saved=localStorage.getItem("af-filter")||"all"}catch(e){}
+if(!btns.some(b=>b.dataset.f===saved)) saved="all";
+applyFilter(saved);
+</script>
+
+</body></html>
